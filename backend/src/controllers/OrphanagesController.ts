@@ -2,6 +2,8 @@ import { Request, Response} from 'express'
 import { getRepository } from 'typeorm'
 
 import Orphanage from '../models/Orphanage';
+import orphanageView from '../views/orphanages_view';
+import * as Yup from 'yup';
 
 export default {
 
@@ -11,17 +13,21 @@ export default {
 
     const orphanagesRepository = getRepository(Orphanage);
 
-    const orphanage = await orphanagesRepository.findOneOrFail(id);
+    const orphanage = await orphanagesRepository.findOneOrFail(id, {
+      relations: ['images']
+    });
 
-    return reponse.json(orphanage);
+    return reponse.json(orphanageView.render(orphanage));
   },
 
   async index(request:Request, reponse:Response) {
     const orphanagesRepository = getRepository(Orphanage);
 
-    const orphanages = await orphanagesRepository.find();
+    const orphanages = await orphanagesRepository.find({
+      relations: ['images']
+    });
 
-    return reponse.json(orphanages);
+    return reponse.json(orphanageView.renderMany(orphanages));
   },
 
   async create(request:Request, reponse:Response) {
@@ -42,7 +48,7 @@ export default {
       return { path: image.filename}
     })
 
-    const orphanage = orphanagesRepository.create({
+    const data = {
       name,
       latitude,
       longitude,
@@ -51,12 +57,31 @@ export default {
       opening_hours,
       open_on_weekends,
       images
+    };
+
+    const schema = Yup.object().shape({
+      name: Yup.string().required('Nome obrigatório'),
+      latitude: Yup.number().required('Latitude obrigatório'),
+      longitude: Yup.number().required('Longitude obrigatório'),
+      about: Yup.string().required('Sobre obrigatório').max(300, 'Máximo de 300 caracteres.'),
+      instructions: Yup.string().required('Instruções obrigatório'),
+      opening_hours: Yup.string().required('Horário obrigatório'),
+      open_on_weekends: Yup.boolean().required('Finais de semana obrigatório'),
+      images: Yup.array(
+        Yup.object().shape({
+          path: Yup.string().required(),
+        })
+      )
     });
 
-    console.log(orphanage);
-  
+    await schema.validate(data, {
+      abortEarly: false,
+    });
+
+    const orphanage = orphanagesRepository.create(data);
+
     await orphanagesRepository.save(orphanage);
   
-    return reponse.status(201).json(orphanage);
+    return reponse.status(201).json(orphanageView.render(orphanage));
   }
 }
