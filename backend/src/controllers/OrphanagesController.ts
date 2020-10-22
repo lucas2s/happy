@@ -74,6 +74,11 @@ export default {
       )
     });
 
+    const dataCast = schema.cast(data);
+    data.latitude = dataCast?.latitude;
+    data.longitude = dataCast?.longitude;
+    data.open_on_weekends = dataCast?.open_on_weekends;
+
     await schema.validate(data, {
       abortEarly: false,
     });
